@@ -1,0 +1,130 @@
+---
+title: "Crude oil production around the world(Top 10) between 2000-2017"
+author: "szzwt"
+date: "2024-04-26"
+output: html_document
+fig_width: 10
+df_print: paged
+---
+
+
+```{r loadlib, echo = TRUE, results = 'hide', warning = FALSE, message = FALSE}
+#Import packages
+library(tidyverse)
+library(ggplot2)
+library(gganimate)
+library(readr)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Origins
+  The data is from https://www.kaggle.com/code/caesarmario/forecasting-crude-oil-value/input, which data was collected from OCED(https://data.oecd.org/energy/crude-oil-production.htm).        
+
+important properties of data :  
+**LOCATION** Origin of crude oil, unit is country.  
+**TIME** The numbers of year 1960 - 2017.  
+**Value** The figures of the cruel oil production.
+**Flag.Codes** The row without Value. 
+
+```{r}
+# load data
+data <- read.csv("data/crudeoil_production.csv")
+
+# show 5 rows of data
+head(data, n = 5)
+```
+
+## Research Questions
+
+visualising data on the amount of oil produced in different countries can visually compare how each country performs in terms of oil production. This can help people understand the distribution of the global oil industry and the importance of each country in energy production. It also can be used to study the relation ship between the exploitation of natural resources resource and some other factors such as economy, environment.
+
+## Data Preparation
+
+After loading data, there are many redudant data that need to be filtered.
+
+Filtered the data, Retain the data for the ten countries with the highest production in each year since 2000 to 2017 and perform a ranking based on Value, rows from the same year should be placed together.
+
+Here we create a ranking veriable to store the rank each year.
+```{r}
+# filter the data that is unknown. the TIME >= 2000
+
+filtered_data <- data[data $ Flag.Codes != "L" & data$TIME >= 2000, ]
+
+# group data by TIME
+# arrange the data in order by value
+# only remain the top 10
+
+data_top10 <- filtered_data %>%
+  group_by(TIME) %>%
+  arrange(TIME, desc(Value)) %>%
+  mutate(ranking = row_number()) %>%
+  filter(ranking <= 10)
+head(data_top10,10)
+```
+
+## graph or graphs
+
+An animation consist of many static pictures, so that is what to do before animate.
+
+After data was prepared, plot the static plots for all years by ggplot2
+
+
+```{r}
+# plot the static data of each year 
+  ## set the axis, text and label of the plot
+  ## filp the axis
+  ## theme layout
+
+plot <- data_top10 %>%
+  ggplot() +
+  geom_col(aes(ranking, Value, fill = LOCATION)) +
+  geom_text(aes(ranking, Value,label = as.character(Value)), hjust = -0.1) +
+  geom_text(aes(ranking, y=0, label = LOCATION), hjust = 1.1) + 
+  geom_text(aes(x = 10, y = max(Value) , label = as.factor(TIME)), vjust = 0.2, alpha = 0.5,  col = "gray", size = 20) +
+  scale_y_continuous(label = function(x) paste(round(x / 1000, 2), " k"))+
+  coord_flip(clip = "off", expand = FALSE) + scale_x_reverse() +
+  theme_minimal() + 
+  theme(
+    panel.grid = element_blank(), 
+    legend.key.size = unit(0.3, "cm"), 
+    legend.position = c(1.0, 0.3),
+    legend.title=element_blank(), 
+    axis.ticks.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    plot.margin = margin(1, 4, 1, 3, "cm"),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+  ) +
+  guides(fill = guide_legend(ncol = 2))
+```
+The final step is make plots into animation by gganimate
+```{r}
+# animation and save
+ ## animate change by TIME
+ ## smoothing treatment
+
+plot_transition <- plot+transition_states(TIME, state_length = 0, transition_length = 2) +
+  labs(title = 'crudeoil production around the world(Top 10)',  
+       caption  = "crudeoil production in KTOE        | Data Source: OECD Data",
+      ) +
+  enter_fade() +
+  exit_fade() + 
+  ease_aes('quadratic-in-out') 
+
+animate(plot_transition,renderer=gifski_renderer("gif/crudeoil_production_visualization.gif"))
+```
+
+## Summary
+
+In this project, the most things i have learned is that how to visualize the data dynamically. Using gganimate makes it easier to show the time scale in a more convenient way. I also learned how to control the layout by Control parameters and variables in the function.
+
+If i have more time to continue my project, i will add some of the data of other energy sources. Overmore, if i can get the data that can shows the economy situation of each country, i also can find relationship between economy and the production of energy sources, and how revelant they are.
+
+## Reference
+
+Data source: Kaggle-https://www.kaggle.com/code/caesarmario/forecasting-crude-oil-value/input
+
